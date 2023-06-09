@@ -31,7 +31,7 @@ D=M;
 D;JGT    
 @LOOPINITWHITE
 0;JMP
-
+//To display black screen
 (LOOPINITBLACK)
 @SCREEN //loading screen address
 D=A;
@@ -43,16 +43,17 @@ M=D;
 D=M;    //loading address of current memory location of screen
 A=D;    //loading that address into address register
 M=-1    //putting content of that memory to -1 which corresponds to 1111111111111111
-@counter
-M=M+1
+@counter    
+M=M+1   //incrementing counter to get next memory location
 @R0
-D=M-1
+D=M-1   //Decrementing the R0 to get view of whether all the registers of SCREEN block is finished looping. The looping finished is checked below and directed accordingly.
 M=D
 @LOOPBLACK
 D;JGT
-@INFINITE
+@INFINITE   //Going to initial state when the loop is finished
 0;JMP
 
+//TO display white screen
 (LOOPINITWHITE)
 @SCREEN //loading screen address
 D=A;
@@ -63,14 +64,14 @@ M=D;
 @counter
 D=M;    //loading address of current memory location of screen
 A=D;    //loading that address into address register
-M=0    //putting content of that memory to -1 which corresponds to 1111111111111111
+M=0    //putting content of that memory to 0 which corresponds to 0000000000000000
 @counter
-M=M+1
+M=M+1   //incrementing counter to get next memory location
 @R0
-D=M-1
+D=M-1   //Decrementing the R0 to get view of whether all the registers of SCREEN block is finished looping. The looping finished is checked below and directed accordingly.
 M=D
-@LOOPWHITE
+@LOOPWHITE  
 D;JGT
-@INFINITE
+@INFINITE   //Going to initial state when the loop is finished
 0;JMP
 
