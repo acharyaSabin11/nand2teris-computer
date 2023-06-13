@@ -1,0 +1,92 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+
+/**
+ * The Hack CPU (Central Processing unit), consisting of an ALU,
+ * two registers named A and D, and a program counter named PC.
+ * The CPU is designed to fetch and execute instructions written in 
+ * the Hack machine language. In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM==0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time step. If reset==1 then the 
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
+ * than to the address resulting from executing the current instruction. 
+ */
+
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    Mux16(a=instruction, b=aluOutput, sel = instruction[15], out = RegAInput);
+    Not(in=instruction[15], out=notInstruction15);
+    Or(a=instruction[5], b=notInstruction15, out=RegALoad);
+    ARegister(in=RegAInput, load=RegALoad, out=RegAOutput, out[0..14]=addressM);
+    Mux16(a=RegAOutput, b=inM, sel = instruction[12], out=aluSecondInput);
+    And(a=instruction[4], b=instruction[15], out=RegDLoad);
+    DRegister(in=aluOutput, load=RegDLoad, out=RegDOutput);
+    ALU(x=RegDOutput, y=aluSecondInput, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=outM, zr=zeroFlag, ng=negativeFlag, out=aluOutput);
+    And(a=instruction[15], b=instruction[3], out=writeM);
+
+    //---------------------------------------------------------------Calculating for pc load and inc bits-------------------------------------------------------------------------------
+    DMux8Way(in=true, sel=instruction[0..2], a=noJump, b=jumpIfGreaterThan0In, c=jumpIfEqualTo0In, d=jumpIfGreaterThanOrEqualTo0In, e=jumpIfLessThan0In, f=jumpIfNotEqualTo0In, g=jumpIfLessThanOrEqualTo0In, h=unconditionalJump);
+
+    DMux4Way(in=true, sel[1]=negativeFlag, sel[0]=zeroFlag, a=aluOutputPositive, b=aluOutputZero, c=aluOutputNegative, d=nonsense);
+    //condition for jump if greather than 0
+    And(a=jumpIfGreaterThan0In, b=aluOutputPositive, out=jumpIfGreaterThan0);
+
+    //condition for jump if equal to zero
+    And(a=jumpIfEqualTo0In, b=aluOutputZero, out=jumpIfEqualTo0);
+
+    //condition for jump if greater than or equal to
+    Or(a=aluOutputPositive, b=aluOutputZero, out=aluOutputGreaterThanOrEqualToZero);
+    And(a=jumpIfGreaterThanOrEqualTo0In, b=aluOutputGreaterThanOrEqualToZero, out= jumpIfGreaterThanOrEqualTo0);
+
+    //condition for jump if less than 0
+    And(a=jumpIfLessThan0In, b=aluOutputNegative, out=jumpIfLessThan0);
+
+    //condition for jump if not equal to zero.
+    Or(a=aluOutputPositive, b=aluOutputNegative, out=aluOutputNonZero);
+    And(a=aluOutputNonZero, b=jumpIfNotEqualTo0In, out=jumpIfNotEqualTo0);
+
+    //condition for jump if less than or equal to zero.
+    Or(a=aluOutputNegative, b=aluOutputZero, out=aluOutputLessThanOrEqualToZero);
+    And(a=jumpIfLessThanOrEqualTo0In, b=aluOutputLessThanOrEqualToZero, out= jumpIfLessThanOrEqualTo0);
+
+
+    //For PC load bit
+    Or8Way(in[0]=unconditionalJump, in[1]=jumpIfGreaterThan0, in[2]=jumpIfEqualTo0, in[3]=jumpIfGreaterThanOrEqualTo0, in[4]=jumpIfLessThan0, in[5]=jumpIfNotEqualTo0, in[6]=jumpIfLessThanOrEqualTo0, in[7]=false, out=pcLoadBitInputToAnd);
+    And(a=pcLoadBitInputToAnd, b=instruction[15], out=pcLoadBitInput);
+
+    //For pc inc bit
+    Or(a=noJump, b=notInstruction15, out=out1);
+    //also including the condition that the pc should increment if the load condition failed to match with alu output(failed condition is indicated by 0 by pcLoadBitInput and notting it we get our desired failed condition bit to be true)
+    Not(in=pcLoadBitInput, out=NotPcLoadBitInput);
+    Or(a=out1, b=NotPcLoadBitInput, out=pcIncBitInput);
+    //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+    PC(in=RegAOutput, load=pcLoadBitInput, reset=reset, inc=pcIncBitInput, out[0..14]=pc);
+
+}
