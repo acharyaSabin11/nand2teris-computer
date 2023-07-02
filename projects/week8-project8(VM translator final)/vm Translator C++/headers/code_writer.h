@@ -4,14 +4,15 @@
 
 class CodeWriter
 {
-    ExtendedMap segmentPointerMap;
-    ExtendedMap operationSymbolMap;
-    std::string fileName;
-    std::ofstream outputFile;
-    ExtendedString outputLine;
-    int callCount = 0;
-    int currentLine = 0;
-    void mapInitialize()
+    ExtendedMap segmentPointerMap;  // to get the segment pointer name based on the code used in vm code.
+    ExtendedMap operationSymbolMap; // to provide the operator symbol in assembly based on the word in the vm code.
+    std::string fileName;           // output file Name storing variable.
+    std::ofstream outputFile;       // output stream file to open file for outputing assembly code.
+    int callCount = 0;              // this variable is used to provide a uniqure return label for each call.
+    int currentLine = 0;            // this variable is used to keep track of the line where the execution should be returned after implementing the less than, greater than or equal to checks. This is tracked inside the program.
+    //! Please be sure to update the current line count if any changes in assembly code is to be made. If the line count don't match, the whole program flow is wasted.
+
+    void mapInitialize() // populating each maps with their values.
     {
         // initalizing the segment pointer map
         segmentPointerMap.addKVPair("local", "LCL");
@@ -31,7 +32,7 @@ class CodeWriter
         operationSymbolMap.addKVPair("lt", "LT");
     }
 
-    void writeInit()
+    void writeInit() // writing the initial code for specifying the stack to start from 256 memory location and calling the sys.init function.
     {
         outputFile << "@256" << std::endl
                    << "D=A" << std::endl
@@ -99,15 +100,20 @@ class CodeWriter
 public:
     //? default constructor
     CodeWriter() {}
-    // constructor
+    //? constructor which initialized the file for writing and also writes the boiler code required in each file.
     CodeWriter(std::string outputFileName)
     {
-        fileName = outputFileName; // this filename is used name the static pointers
-        outputFileName += ".asm";
-        mapInitialize();
-        outputFile.open(outputFileName);
-        writeInit();
-        outputFile << "// Starter boiler code for conditional checks and return" << std::endl;
+        fileName = outputFileName;       // this filename is used name the static pointers
+        outputFileName += ".asm";        // making the ouput file name
+        mapInitialize();                 // initializing maps
+        outputFile.open(outputFileName); // opening file.
+        if (!outputFile.good())          // throwing error if the output file cannot be opened or created.
+        {
+            std::cout << "Error opening the output file." << std::endl;
+            exit(0);
+        }
+        writeInit();                                                                           // when file is opened, write the initalization code.
+        outputFile << "// Starter boiler code for conditional checks and return" << std::endl; // write boiler code for condtional checks and returns.
         outputFile << "(setTrue)" << std::endl
                    << "@SP" << std::endl
                    << "A=M-1" << std::endl
@@ -121,7 +127,7 @@ public:
                    << "M=0" << std::endl
                    << "@R13" << std::endl
                    << "A=M" << std::endl
-                   << "0;JMP" << std::endl;
+                   << "0;JMP" << std::endl; // 12
         // for eq operation
         outputFile << "(EQ)" << std::endl
                    << "@SP" << std::endl
@@ -133,7 +139,7 @@ public:
                    << "@setTrue" << std::endl
                    << "D;JEQ" << std::endl
                    << "@setFalse" << std::endl
-                   << "0;JMP" << std::endl;
+                   << "0;JMP" << std::endl; // 10
         // for gt operation
         outputFile << "(GT)" << std::endl
                    << "@SP" << std::endl
@@ -145,7 +151,7 @@ public:
                    << "@setTrue" << std::endl
                    << "D;JGT" << std::endl
                    << "@setFalse" << std::endl
-                   << "0;JMP" << std::endl;
+                   << "0;JMP" << std::endl; // 10
         // for lt operation
         outputFile << "(LT)" << std::endl
                    << "@SP" << std::endl
@@ -157,7 +163,7 @@ public:
                    << "@setTrue" << std::endl
                    << "D;JLT" << std::endl
                    << "@setFalse" << std::endl
-                   << "0;JMP" << std::endl;
+                   << "0;JMP" << std::endl; // 10
         // for return operation
         outputFile << "(RETURN)" << std::endl
                    // endframe = LCL
@@ -219,15 +225,16 @@ public:
                    << "A=M" << std::endl
                    << "0;JMP" << std::endl;
 
-        currentLine += (44 + 49);
+        currentLine += (42 + 49);
     }
 
     void writeArithmetic(ExtendedString cmd)
     {
         ExtendedList brokenCommandList = cmd.split(' ');
-        ExtendedString command = brokenCommandList.getItemByIndex(0);
+        ExtendedString command = brokenCommandList.getItemByIndex(0); // using only the first word as arithmetic command as whole instruction can contain comments too.
 
-        outputFile << "// " << command << std::endl;
+        outputFile << "// " << command << std::endl; // comment in assembly for easy debugging purpose.
+        // writing assembly code based on command.
         if (command == "add" || command == "sub" || command == "and" || command == "or")
         {
             outputFile << "@SP" << std::endl
@@ -257,7 +264,7 @@ public:
         }
     }
 
-    void writePushPop(CommandType cmdType, ExtendedString segment, int index)
+    void writePushPop(CommandType cmdType, ExtendedString segment, int index, ExtendedString inputFileName)
     {
         std::string type = (cmdType == C_PUSH) ? "push " : "pop ";
         outputFile << "// " << type << segment << " " << index << std::endl;
@@ -292,7 +299,7 @@ public:
             }
             else if (segment == "static")
             {
-                std::string variableName = "fileName." + std::to_string(index);
+                std::string variableName = inputFileName + "." + std::to_string(index);
                 outputFile << "@" << variableName << std::endl //@static.index
                            << "D=M" << std::endl
                            << "@SP" << std::endl
@@ -356,7 +363,7 @@ public:
             }
             else if (segment == "static")
             {
-                std::string variableName = "fileName." + std::to_string(index);
+                std::string variableName = inputFileName + "." + std::to_string(index);
                 outputFile << "@SP" << std::endl
                            << "M=M-1" << std::endl
                            << "A=M" << std::endl

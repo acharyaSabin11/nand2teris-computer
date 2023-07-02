@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <filesystem>
 
+// checks if the provided string contains only digits or not.
 bool isOnlyDigits(ExtendedString str)
 {
     for (char i : str)

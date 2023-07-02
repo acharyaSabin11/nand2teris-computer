@@ -1,5 +1,6 @@
 #pragma once
 
+// enums to represent command type
 typedef enum CommandType
 {
     C_ARITHMETIC,
